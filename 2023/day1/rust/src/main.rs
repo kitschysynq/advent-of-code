@@ -39,24 +39,18 @@ fn main() {
     let num: u32 = puzzle_input_buffer.lines()
         .filter_map(|l| l.ok())
         .map(|line| {
-            let test: Vec<u32> = re
-                .captures_iter(line.as_str())
+            re.captures_iter(line.as_str())
                 .filter(|cap| !cap.is_empty())
                 .map(|cap| {
                     cap.iter_pos()
                         .filter_map(|pos| {
                             let p = pos.unwrap();
-                            Some(&line[p.0..p.1])
+                            parse_matches(&line[p.0..p.1])
                         })
-                        .collect::<Vec<&str>>()
+                        .collect::<Vec<_>>()
                 })
-                .flat_map(|caps| {
-                    caps.iter()
-                        .filter_map(|m| parse_matches(m))
-                        .collect::<Vec<u32>>()
-                })
-                .collect::<Vec<u32>>();
-            test
+                .flatten()
+                .collect::<Vec<_>>()
         })
         .map(|num| {
             let first = num[0];
