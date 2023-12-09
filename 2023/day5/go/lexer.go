@@ -2,6 +2,7 @@ package day5
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"unicode"
@@ -11,20 +12,22 @@ type Token int
 
 const (
 	EOF = iota
+	NL
 	NUM
 	COLON
 	IDENT
-	TO
+	SEEDS
 	MAP
 )
 
 var tokens = []string{
-	EOF:  "EOF",
-	NUM:  "NUM",
+	EOF:   "EOF",
+	NL:    "NL",
+	NUM:   "NUM",
 	COLON: "COLON",
 	IDENT: "IDENT",
-	TO: "TO",
-	MAP: "MAP",
+	SEEDS: "SEEDS",
+	MAP:   "MAP",
 }
 
 func (t Token) String() string {
@@ -34,6 +37,10 @@ func (t Token) String() string {
 type Position struct {
 	Line   int
 	Column int
+}
+
+func (p Position) String() string {
+	return fmt.Sprintf("Line %d Column %d", p.Line, p.Column)
 }
 
 type Lexer struct {
@@ -63,19 +70,20 @@ func (l *Lexer) Lex() (Position, Token, string) {
 		switch r {
 		case '\n':
 			l.resetPosition()
-		case 'C':
-			startPos := l.pos
-			l.backup()
-			lit := l.lexCardID()
-			return startPos, CARD, lit
-		case '|':
-			return l.pos, PIPE, "|"
+			return l.pos, NL, "\\n"
+		case ':':
+			return l.pos, COLON, ":"
 		default:
 			if unicode.IsDigit(r) {
 				startPos := l.pos
 				l.backup()
 				lit := l.lexNum()
 				return startPos, NUM, lit
+			}
+			if unicode.IsLetter(r) {
+				startPos := l.pos
+				l.backup()
+				return l.lexIdent(startPos)
 			}
 			if !unicode.IsSpace(r) {
 				panic("unexpected token: " + string(r))
@@ -97,18 +105,6 @@ func (l *Lexer) backup() {
 	l.pos.Column--
 }
 
-func (l *Lexer) lexCardID() string {
-	var lit string
-	c, err := l.r.ReadString(':')
-	if err != nil {
-		panic("reading from input: " + err.Error())
-	}
-	if _, err := fmt.Sscanf(c[:len(c)-1], "Card %s", &lit); err != nil {
-		panic(err)
-	}
-	return lit
-}
-
 func (l *Lexer) lexNum() string {
 	var lit string
 	for {
@@ -126,5 +122,34 @@ func (l *Lexer) lexNum() string {
 		}
 
 		lit = lit + string(r)
+	}
+}
+
+func (l *Lexer) lexIdent(start Position) (Position, Token, string) {
+	var buf bytes.Buffer
+	r, _, err := l.r.ReadRune()
+	if err != nil {
+		panic(err)
+	}
+	buf.WriteRune(r)
+
+	for {
+		r, _, err := l.r.ReadRune()
+		if err == io.EOF {
+			break
+		}
+		if !unicode.IsLetter(r) && r != '-' {
+			l.r.UnreadRune()
+			break
+		}
+		_, _ = buf.WriteRune(r)
+	}
+	switch lit := buf.String(); lit {
+	case "seeds":
+		return start, SEEDS, lit
+	case "map":
+		return start, MAP, lit
+	default:
+		return start, IDENT, lit
 	}
 }
